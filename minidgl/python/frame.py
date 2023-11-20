@@ -317,5 +317,22 @@ class FrameRef(MutableMapping):
             return self._index_data.stop - self._index_data.start
         else:
             return len(self._index_data)
-    
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+        
+    def __contains__(self, name):
+        """Return whether the column name exists."""
+        return name in self._frame
+    def __iter__(self):
+        """Return the iterator of the columns."""
+        return iter(self._frame)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+    def __len__(self):
+        """Return the number of columns."""
+        return self.num_columns
+    def keys(self):
+        """Return the keys."""
+        return self._frame.keys()
+    def __getitem__(self, key):
+        """Get data from the frame
+
+        
+
+        """
