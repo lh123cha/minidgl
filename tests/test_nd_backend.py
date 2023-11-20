@@ -141,6 +141,20 @@ def test_tanh_backward(shape, device):
     A = ndl.Tensor(nd.array(_A), device=device)
     backward_check(ndl.tanh, A)
 
+CAT_PARAMETERS = [((5, 5), 0, 1),
+    ((5, 5), 0, 2),
+    ((1,5,7), 2, 5)]
+
+@pytest.mark.parametrize("shape, dim, l",CAT_PARAMETERS)
+@pytest.mark.parametrize("device",_DEVICES, ids=["cpu","cuda"])
+def test_cat(shape,dim,l,device):
+    _M = [np.random.randn(*shape).astype(np.float32) for i in range(l)]
+    M = [ndl.Tensor(nd.array(_M[i]),device=device) for i in range(l)]
+    M_t = [torch.Tensor(_M[i]) for i in range(l)]
+    out = ndl.cat(M,dim=dim)
+    out_t = torch.cat(M_t,dim=dim)
+    np.testing.assert_allclose(out_t.numpy(),out.numpy(),atol=1e-5,rtol=1e-5)
+
 
 STACK_PARAMETERS = [((5, 5), 0, 1),
     ((5, 5), 0, 2),

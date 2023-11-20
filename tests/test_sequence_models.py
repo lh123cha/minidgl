@@ -195,8 +195,8 @@ def test_language_model_implementation(seq_length, num_layers, batch_size, embed
                         init_hidden, output_size, seq_model, device):
     #TODO add test for just nn.embedding?
     x = np.random.randint(0, output_size, (seq_length, batch_size)).astype(np.float32)
-    h0 = ndl.Tensor(np.random.randn(num_layers, batch_size, hidden_size).astype(np.float32), device=device)
-    c0 = ndl.Tensor(np.random.randn(num_layers, batch_size, hidden_size).astype(np.float32), device=device)
+    h0 = ndl.Tensor(np.random.randn(num_layers, batch_size, hidden_size).astype(np.float32), device=device,requires_grad=True)
+    c0 = ndl.Tensor(np.random.randn(num_layers, batch_size, hidden_size).astype(np.float32), device=device,requires_grad=True)
 
     model = LanguageModel(embedding_size, output_size, hidden_size, num_layers, seq_model, device=device)
     if init_hidden:
@@ -204,9 +204,9 @@ def test_language_model_implementation(seq_length, num_layers, batch_size, embed
             h = (h0, c0)
         elif seq_model == 'rnn':
             h = h0
-        output, h_ = model(ndl.Tensor(x, device=device), h)
+        output, h_ = model(ndl.Tensor(x, device=device,requires_grad=True), h)
     else:
-        output, h_ = model(ndl.Tensor(x, device=device), None)
+        output, h_ = model(ndl.Tensor(x, device=device,requires_grad=True), None)
 
     if seq_model == 'lstm':
         assert isinstance(h_, tuple)

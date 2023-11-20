@@ -273,7 +273,6 @@ def test_dilate_forward(device):
          [0., 0.],
          [0., 0.]]]])) < 1e-5
 
-
 dilate_backward_params = [
     {"shape": (2, 5),          "d": 1, "axes": (0,)},
     {"shape": (2, 5),          "d": 2, "axes": (1,)},
@@ -487,7 +486,10 @@ def one_iter_of_cifar10_training(dataloader, model, niter=1, loss_fn=ndl.nn.Soft
             break
         i += 1
     return correct/(y.shape[0]*niter), total_loss/(y.shape[0]*niter)
-
+# INIT_SHAPE_PARAMETER = [((2, 3),),((3,4,5),)]
+# @pytest.mark.parametrize("shape",INIT_SHAPE_PARAMETER)
+# def test_init_rand(shape):
+    
 
 ######################    |    ######################
 ###################### MUGRADE ######################

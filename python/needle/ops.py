@@ -1,7 +1,7 @@
 """Operatpr table."""
 # Global operator table.
 from numbers import Number
-from typing import Optional, List
+from typing import Optional, List, Tuple, Union
 from .autograd import NDArray
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
@@ -684,3 +684,59 @@ def conv(a, b, stride=1, padding=1):
 
 
 
+class Cat(TensorOp):
+    def __init__(self,dim : int) -> None:
+        self._dim = dim
+        self.num_args = 0
+    def compute(self, args: Tuple[Tensor]):
+        shape = args[0].shape
+        new_shape = list(shape)
+        self.num_args = len(args)
+        for i in range(1,len(args)):
+            new_shape[self._dim]+=args[i].shape[self._dim]
+        out = array_api.empty(
+            new_shape,dtype=args[0].dtype, device = args[0].device
+        )
+
+        slices = []
+        for i in range(len(new_shape)):
+            if i == self._dim:
+                slices.append(None)
+            else:
+                slices.append(slice(new_shape[i]))
+        #cat将多个向量拼接到一个维度，
+        for j in range(len(args)):
+            slices[self._dim] = slice(j*shape[self._dim],(j+1)*shape[self._dim])
+            out[tuple(slices)] = args[j]
+        return out
+    def gradient(self, out_grad: Value, node: Value):
+        return split_cat(out_grad ,self.num_args ,self._dim)
+    
+def cat(args,dim):
+    return Cat(dim)(make_tuple(*args))
+
+
+class Split_Cat(TensorOp):
+    def __init__(self , num_split:int,dim:int) -> None:
+        self._num_split = num_split
+        self._dim = dim
+    def compute(self, A : Tensor):
+        shape = A.shape
+        out_shape = list(shape)
+        out_dim = out_shape[self._dim]/self._num_split
+        tensors = []
+        slices = []
+        for i in range(len(shape)):
+            if i!=self._dim:
+                slices.append(slice(out_shape[i]))
+            else:
+                slices.append(None)
+        for j in range(len(self._num_split)):
+            slices[self._dim] = slice(j*out_dim,(j+1)*out_dim)
+            tensors.append(A[tuple(slices)])
+        return tuple(tensors)
+    def gradient(self, out_grad: Value, node: Value):
+        return cat(tuple(out_grad),self._dim)
+    
+def split_cat(a,num_split,dim):
+    return Split_Cat(num_split,dim)(a)
