@@ -364,6 +364,9 @@ class Tensor(Value):
     __rmul__ = __mul__
     __rmatmul__ = __matmul__
 
+    def to_cpu(self):
+        zero_copy = needle.Tensor(array=self.data,device=default_device)
+        return zero_copy
 
 def compute_gradient_of_variables(output_tensor, out_grad):
     """Take gradient of output node with respect to each node in node_list.

@@ -1,7 +1,8 @@
 """Utility module."""
 from __future__ import absolute_import, division
-
-from collections import Mapping, Iterable
+import sys
+from collections.abc import  Iterable
+from collections.abc import Mapping
 from functools import wraps
 import numpy as np
 
@@ -9,19 +10,19 @@ sys.path.append('../python')
 import needle as ndl
 import needle.backend_ndarray as bn
 
-from .base import DGLError
-from . import backend as F
-from . import ndarray as nd
-
 class Index(object):
-    """Index class that can be easily converted to list/tensor."""
+    """Index class that can be easily converted to list/tensor.
+    minidgl支持list格式和slice格式的data索引。
+    Index数据可以转换为NDarray、numpy
+    """
     def __init__(self, data):
         self._initialize_data(data)
 
     def _initialize_data(self, data):
-        self._pydata = None   # a numpy type data or a slice
-        self._user_tensor_data = dict()  # dictionary of user tensors
-        self._dgl_tensor_data = None  # a dgl ndarray
+        self.list_data = None
+        self.slice_data = None
+        self.np_data = None
+        self.minidgl_tensor = None
         self._dispatch(data)
 
     def __iter__(self):
@@ -29,93 +30,62 @@ class Index(object):
             yield int(i)
 
     def __len__(self):
-        if self._pydata is not None and isinstance(self._pydata, slice):
-            slc = self._pydata
+        if self.slice_data is not None and isinstance(self.slice_data,slice):
+            slc = self.slice_data
             if slc.step is None:
-                return slc.stop - slc.start
+                return slc.stop-slc.start
             else:
-                return (slc.stop - slc.start) // slc.step
-        elif self._pydata is not None:
-            return len(self._pydata)
-        elif len(self._user_tensor_data) > 0:
-            data = next(iter(self._user_tensor_data.values()))
-            return len(data)
+                return (slc.stop-slc.start)//slc.step
         else:
-            return len(self._dgl_tensor_data)
+            return len(self.list_data)
 
     def __getitem__(self, i):
         return int(self.tonumpy()[i])
 
     def _dispatch(self, data):
         """Store data based on its type."""
-        if isinstance(data, ndl.Tensor):
-            if not (data.dtype == 'int64' and len(data.shape) == 1):
-                raise ValueError('Index data must be 1D int64 vector, but got: %s' % str(data))
-            self._dgl_tensor_data = data
-        elif isinstance(data, slice):
-            # save it in the _pydata temporarily; materialize it if `tonumpy` is called
-            self._pydata = data
-        else:
-            try:
-                self._pydata = np.array([int(data)]).astype(np.int64)
-            except:
-                try:
-                    data = np.array(data).astype(np.int64)
-                    if data.ndim != 1:
-                        raise ValueError('Index data must be 1D int64 vector,'
-                                       ' but got: %s' % str(data))
-                    self._pydata = data
-                except:
-                    raise ValueError('Error index data: %s' % str(data))
-            self._user_tensor_data[F.cpu()] = F.zerocopy_from_numpy(self._pydata)
+        if isinstance(data,np.ndarray):
+            self.np_data = data
+        elif isinstance(data,list):
+            self.list_data = data
+        elif isinstance(data,slice):
+            self.slice_data = data
+        self.tonumpy()
+        self.todgltensor()
 
     def tonumpy(self):
         """Convert to a numpy ndarray."""
-        if self._pydata is None:
-            if self._dgl_tensor_data is not None:
-                self._pydata = self._dgl_tensor_data.asnumpy()
-            else:
-                data = self.tousertensor()
-                self._pydata = F.zerocopy_to_numpy(data)
-        elif isinstance(self._pydata, slice):
-            # convert it to numpy array
-            slc = self._pydata
-            self._pydata = np.arange(slc.start, slc.stop, slc.step).astype(np.int64)
-        return self._pydata
+        if self.np_data is not None:
+            return self.np_data
+        elif self.slice_data is not None:
+            #convert slice to numpy array
+            slc = self.slice_data
+            self.np_data = np.arange(slc.start,slc.stop,slc.step).astype(np.int64)
+        elif self.list_data is not None:
+            print(self.list_data)
+            self.np_data = np.array(self.list_data)
+            print(self.np_data)
+        return self.np_data
 
-    def tousertensor(self, ctx=None):
-        """Convert to user tensor (defined in `backend`)."""
-        if ctx is None:
-            ctx = F.cpu()
-        if len(self._user_tensor_data) == 0:
-            if self._dgl_tensor_data is not None:
-                # zero copy from dgl tensor
-                dl = self._dgl_tensor_data.to_dlpack()
-                self._user_tensor_data[F.cpu()] = F.zerocopy_from_dlpack(dl)
-            else:
-                # zero copy from numpy array
-                self._user_tensor_data[F.cpu()] = F.zerocopy_from_numpy(self.tonumpy())
-        if ctx not in self._user_tensor_data:
-            # copy from cpu to another device
-            data = next(iter(self._user_tensor_data.values()))
-            self._user_tensor_data[ctx] = F.copy_to(data, ctx)
-        return self._user_tensor_data[ctx]
+    def todgltensor(self,ctx=bn.default_device()):
+        """Convert to needle.NDArray.
 
-    def todgltensor(self):
-        """Convert to dgl.NDArray."""
-        if self._dgl_tensor_data is None:
+        convert to numpy array first then to NDArray.
+        use ctx as backend device
+        """
+        if self.minidgl_tensor is None:
             # zero copy from user tensor
-            tsor = self.tousertensor()
-            dl = F.zerocopy_to_dlpack(tsor)
-            self._dgl_tensor_data = nd.from_dlpack(dl)
-        return self._dgl_tensor_data
+            tsor = self.tonumpy()
+            dl = ndl.Tensor(array=tsor,device=ctx,dtype="float32")
+            self.minidgl_tensor = dl
+        return self.minidgl_tensor
 
     def is_slice(self, start, stop, step=None):
-        return (isinstance(self._pydata, slice)
-                and self._pydata == slice(start, stop, step))
+        return (isinstance(self.slice_data, slice)
+                and self.slice_data == slice(start, stop, step))
 
     def __getstate__(self):
-        return self.tousertensor()
+        return self.todgltensor()
 
     def __setstate__(self, state):
         self._initialize_data(state)
@@ -199,6 +169,8 @@ def build_relabel_map(x, sorted=False):
 
     Ids are assigned new ids according to their ascending order.
 
+    Only receive numpy data.
+
     Examples
     --------
     >>> x = [1, 5, 3, 6]
@@ -226,14 +198,14 @@ def build_relabel_map(x, sorted=False):
         One can use advanced indexing to convert an old id tensor to a
         new id tensor: new_id = old_to_new[old_id]
     """
-    x = x.tousertensor()
+    x = x.tonumpy()
     if not sorted:
-        unique_x, _ = F.sort_1d(F.unique(x))
+        unique_x, _ = np.unique(x)
     else:
         unique_x = x
-    map_len = int(F.asnumpy(F.max(unique_x, dim=0))) + 1
-    old_to_new = F.zeros((map_len,), dtype=F.int64, ctx=F.cpu())
-    F.scatter_row_inplace(old_to_new, unique_x, F.arange(0, len(unique_x)))
+    map_len = int(np.max(a=unique_x,axis=0)) + 1
+    old_to_new = np.zeros(shape=(map_len,),dtype=np.int64)
+    old_to_new[unique_x] = np.arange(0,len(unique_x))
     return unique_x, old_to_new
 
 def build_relabel_dict(x):
@@ -324,8 +296,8 @@ def reorder(dict_like, index):
     """
     new_dict = {}
     for key, val in dict_like.items():
-        idx_ctx = index.tousertensor(F.context(val))
-        new_dict[key] = F.gather_row(val, idx_ctx)
+        idx_ctx = index.tonumpy()
+        new_dict[key] = val[idx_ctx]
     return new_dict
 
 def reorder_index(idx, order):
@@ -338,9 +310,9 @@ def reorder_index(idx, order):
     order : utils.Index
         The order to follow.
     """
-    idx = idx.tousertensor()
-    order = order.tousertensor()
-    new_idx = F.gather_row(idx, order)
+    idx = idx.tonumpy()
+    order = order.tonumpy()
+    new_idx = idx[order]
     return toindex(new_idx)
 
 def is_iterable(obj):

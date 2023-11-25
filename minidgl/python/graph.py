@@ -1,6 +1,8 @@
 from python.needle import Tensor
 
 class Graph(object):
+    """一个Graph object包含node frame，edge frame
+    """
     def __init__(self) -> None:
         pass
 
