@@ -3,12 +3,14 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/home/lianghui/anaconda3/envs/dgl-dev-gpu-117/lib/python3.8/site-packages/pybind11/include",
+                "/home/lianghui/anaconda3/envs/dgl-dev-gpu-117/lib/python3.8/site-packages/pybind11/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c11",
-            "cppStandard": "gnu++14",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64",
             "configurationProvider": "ms-vscode.cmake-tools"
         }

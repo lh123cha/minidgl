@@ -5,7 +5,9 @@ from collections import namedtuple
 import sys
 from tempfile import tempdir
 import numpy as np
-import utils
+#引用自己的模块和在运行测试命令时的路径相关
+#在根目录minidgl内执行pytest时需要将import的路径也写成从根目录minidgl开始的绝对路径
+import minidgl.python.indexutils as utils
 sys.path.append('../python')
 import needle as ndl
 import needle.backend_ndarray as bn
@@ -65,7 +67,7 @@ class Column(object):
 
         Parameter:
         --------------
-        idx : slice
+        idx : slice or utils.Index
             The index
         feats : Tensor
             The new features
@@ -74,20 +76,20 @@ class Column(object):
         feat_scheme = infer_scheme(feats)
         if feat_scheme != self.scheme:
             raise ValueError()
-
-        if isinstance(idx,slice):
-            raise ValueError("Cannot upadte column of schemem %s using feature of column %s" % (feat_scheme,self.scheme))
+        if isinstance(idx,utils.Index):
+            idx = idx.tonumpy()
+            idx = idx.astype(int)
         if inplace:
-            self.data[idx] = feats
+            self.data.numpy()[idx] = feats.numpy()
         # out-place wirte
         #TODO: 支持idx为Index object的情况
         else:
             if isinstance(idx,slice):
-                part1 = self.data[0:idx.start]
-                part2 = feats
-                part3 = self.data[idx.stop:len(self)]
+                part1 = self.data.numpy()[0:idx.start]
+                part2 = feats.numpy()
+                part3 = self.data.numpy()[idx.stop:len(self)]
             else:
-                self.data[idx] = feats
+                self.data.numpy()[idx] = feats.numpy()
     def extend(self,feats : ndl.Tensor,feat_scheme=None):
         """在Column中添加数据
             [[0,1,11],[11,2,2]]-----(添加一行)---->[[0,1,11],[11,2,2],[2,2,3]]

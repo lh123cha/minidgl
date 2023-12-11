@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2)
+cmake_minimum_required(VERSION 3.5)
 project(needle C CXX)
 
 # find correct version of Python
@@ -47,7 +47,32 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set_property(TARGET ndarray_backend_cpu PROPERTY LINK_OPTIONS -undefined dynamic_lookup)
 endif()
 
+#####################
+### Graph backend####
+#####################
+add_library(graph_backend MODULE minidgl/src/graph.cc)
+target_link_libraries(graph_backend PUBLIC ${LINKER_LIBS})
+pybind11_extension(graph_backend)
+pybind11_strip(graph_backend)
 
+#directly output to ffi folder
+set_target_properties(graph_backend
+  PROPERTIES
+  LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/minidgl/cppbackend/graph_backend
+  CXX_VISIBILITY_PRESET "hidden"
+)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set_property(TARGET graph_backend PROPERTY LINK_OPTIONS -undefined dynamic_lookup)
+endif()
+
+# file(GLOB_RECURSE GRAPH_LIB_SRC
+#        minidgl/src/*.cc   
+# )   
+# add_library(graph SHARED ${GRAPH_LIB_SRC})
+
+
+# add_executable(graph_demo tests/test_graph.cc)
+# target_link_libraries(graph_demo graph)
 
 ####################
 ### CUDA BACKEND ###

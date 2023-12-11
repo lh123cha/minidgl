@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 import torch
 import itertools
-import minidgl.python.utils as util
+import minidgl.python.indexutils as util
 
 import needle as ndl
 import needle.nn as nn

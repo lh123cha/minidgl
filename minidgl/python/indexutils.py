@@ -28,6 +28,7 @@ class Index(object):
     def __iter__(self):
         for i in self.tonumpy():
             yield int(i)
+    
 
     def __len__(self):
         if self.slice_data is not None and isinstance(self.slice_data,slice):

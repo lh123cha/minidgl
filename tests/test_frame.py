@@ -14,6 +14,7 @@ import pytest
 import torch
 import itertools
 import minidgl.python.frame as F
+import minidgl.python.indexutils as util
 
 import needle as ndl
 import needle.nn as nn
@@ -68,3 +69,12 @@ def test_update_frame(column_name,update_data,device):
     frame.update_column(column_name,update_data)
     print(frame._columns[column_name].data)
     assert(frame._columns[column_name].data == update_data)
+
+@pytest.mark.parametrize("column_name",COLUMN_NAME_PARAMETER)
+def test_column_update(column_name):
+    tensor_data = ndl.Tensor([[1,2,1],[2,5,2],[55,5,7],[9,8,7]])
+    print(tensor_data.numpy()[0])
+    c1 = F.Column(tensor_data,F.infer_scheme(tensor_data))
+    c1.update(util.Index([0,2]),ndl.Tensor([[2,5,10],[0,0,0]]))
+    print(type(c1.data))
+    assert c1.data.numpy().sum() == 17
