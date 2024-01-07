@@ -46,7 +46,6 @@ BoolArray Graph::HastheVertices(IDArray vertexid_array){
     }
     return res;
 }
-}
 bool Graph::HasEdgeBetween(minidgl_id_t src,minidgl_id_t dst) const{
     std::vector<minidgl_id_t> src_succ_list = adj_[src].succ;
     if(std::find(src_succ_list.begin(),src_succ_list.end(),dst)!=src_succ_list.end()){
@@ -73,10 +72,28 @@ IDArray Graph::EdgeId(minidgl_id_t src,minidgl_id_t dst){
     return edgeid_list;
 }
 Graph::EdgeArray Graph::EdgesIds(IDArray src_array,IDArray dst_array){
+    //broadcast
+    const int srclen = src_array.size();
+    const int dstlen = dst_array.size();
     CHECK((srclen == dstlen) || (srclen == 1) || (dstlen == 1))
     << "Invalid src and dst id array.";
-    //broadcat 
-    
+    const int64_t src_stride = (srclen==1&&dstlen!=1) ? 0:1;
+    const int64_t dst_stride = (dstlen==1&&srclen!=1) ? 0 : 1;
+    std::vector<minidgl_id_t> src,dst,eid;
+
+    for(int i=0,j=0;i<srclen&&j<dstlen;i+=src_stride,j+=dst_stride){
+        const minidgl_id_t src_id = src_array[i],dst_id = dst_array[j];
+        CHECK(HastheVertex(src_id)&&HastheVertex(dst_id));
+        const auto& succ = adj_[src_id].succ
+        for(size_t k=0;k<=succ.size();k++){
+            if(succ[k]==dst_id){
+                src.push_back(src_id);
+                dst.push_back(dst_id);
+                eid.push_back(adj_[src_id].edge_id[k]);
+            }
+        }
+    }
+    return Graph::EdgeArray(src,dst,eid);
 }
 namespace py = pybind11;
 PYBIND11_MODULE(graph_backend, m) {
@@ -111,9 +128,16 @@ PYBIND11_MODULE(graph_backend, m) {
         .def_property_readonly("all_edges_src",&Graph::Get_all_edges_src)
         .def_property_readonly("all_edges_dst",&Graph::Get_all_edges_dst)
         .def_property("num_edges",&Graph::Getnumedges,&Graph::Setnumedges)
-        .def_property("is_multigraph",&Graph::Getmultigraph,&Graph::Setmultigraph);
+        .def_property("is_multigraph",&Graph::Getmultigraph,&Graph::Setmultigraph)
+        .def("AddVertices",&Graph::AddVertices)
+        .def("AddEdge",&Graph::AddEdge)
+        .def("AddEdges",&Graph::AddEdges)
+        .def("HastheVertices",&Graph::HastheVertices)
+        .def("HastheVertex",&Graph::HastheVertex)
+        .def("HasEdgeBetween",&Graph::HasEdgeBetween)
+        .def("HasEdgesBetween",&Graph::HasEdgesBetween)
+        .def("EdgeId",&Graph::EdgeId)
+        .def("EdgeIds",&Graph::EdgeIds);
 }
-
-
 
 }

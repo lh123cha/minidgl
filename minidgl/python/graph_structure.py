@@ -82,5 +82,10 @@ def create_graph_index(graph_data = None,multigraph = False):
         return gs
     if isinstance(graph_data,(list,tuple)):
         gs.from_edge_list(graph_data)
-    elif isinstance(graph_data,(list)):
-        gs.
+    elif isinstance(graph_data,scipy.sparse.spmatrix):
+        try:
+            gs.from_scipy_sparse_matrix(graph_data)
+            return gs
+        except:
+            raise ValueError("Graph data must be scipy sparse spmatrix")
+    return gs
