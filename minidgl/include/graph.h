@@ -152,6 +152,9 @@ namespace minidgl{
 
            EdgeArray edges(bool sorted);
 
+           EdgeArray FindEdges(IDArray eids);
+           
+
 
     };
 

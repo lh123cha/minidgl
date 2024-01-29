@@ -95,6 +95,7 @@ Graph::EdgeArray Graph::EdgesIds(IDArray src_array,IDArray dst_array){
     }
     return Graph::EdgeArray(src,dst,eid);
 }
+Graph::EdgeArray Graph::FindEdges()
 namespace py = pybind11;
 PYBIND11_MODULE(graph_backend, m) {
     py::class_<EdgeList>(m,"EdgeList")
