@@ -489,6 +489,10 @@ class NDArray:
         out = NDArray.make(self.shape, device=self.device)
         self.device.ewise_tanh(self.compact()._handle, out._handle)
         return out
+    
+    # ###flashattention
+    # def __flashattention__(self,other):
+
 
     ### Matrix multiplication
     def __matmul__(self, other):

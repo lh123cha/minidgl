@@ -2,14 +2,15 @@
 该项目基于CMU 10-414课程的课程大作业框架，实现一个简单的图神经网络系统，以及一些ai框架的优化。
 
 预期添加实现以下功能：
-1.高效的通用矩阵乘法GEMM
-1.Checkpoint实现
-2.高效的softmax实现OneFlow
-3.flash-attention加速优化
-4.图数据加载(拓扑数据与特征数据)
-5.图采样算法(基于CPU、GPU)
-6.简单的图神经网络架构算法
-# 一、CheckPoint实现
+- 高效的通用矩阵乘法GEMM
+- 高效的softmax、layernorm、elementwise实现
+- flash-attention加速优化
+- 图数据加载(拓扑数据与特征数据)
+- 图采样算法(基于CPU、GPU)
+- 简单的图神经网络架构算法
+# 一、通用GEMM
+具体实现参考
+https://voltaic-turret-94c.notion.site/Minidgl-a60dabb385a344d69d018e7708fd5b45?pvs=4
 
 # 一、图数据加载
 
