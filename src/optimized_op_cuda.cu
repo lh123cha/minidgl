@@ -220,10 +220,10 @@ __global__ void softmax_safe_v2_vec4(float* x, float* y, float* total, int N) {
 
 
 //final softmax kernel with warp block switch
-template<const int NUM_THREADS=1024>  
-void softmaxDispatch(){
+// template<const int NUM_THREADS=1024>  
+// void softmaxDispatch(){
   
-}
+// }
 
 
 
