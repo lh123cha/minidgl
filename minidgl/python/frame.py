@@ -1,9 +1,13 @@
 from __future__ import absolute_import
+from ast import Num
 from collections.abc import MutableMapping
 from collections import namedtuple
 import sys
+from tempfile import tempdir
 import numpy as np
-import sys
+#引用自己的模块和在运行测试命令时的路径相关
+#在根目录minidgl内执行pytest时需要将import的路径也写成从根目录minidgl开始的绝对路径
+import minidgl.python.indexutils as utils
 sys.path.append('../python')
 import needle as ndl
 import needle.backend_ndarray as bn
@@ -63,7 +67,7 @@ class Column(object):
 
         Parameter:
         --------------
-        idx : slice
+        idx : slice or utils.Index
             The index
         feats : Tensor
             The new features
@@ -72,19 +76,20 @@ class Column(object):
         feat_scheme = infer_scheme(feats)
         if feat_scheme != self.scheme:
             raise ValueError()
-
-        if isinstance(idx,slice):
-            raise ValueError("Cannot upadte column of schemem %s using feature of column %s" % (feat_scheme,self.scheme))
+        if isinstance(idx,utils.Index):
+            idx = idx.tonumpy()
+            idx = idx.astype(int)
         if inplace:
-            self.data[idx] = feats
+            self.data.numpy()[idx] = feats.numpy()
         # out-place wirte
+        #TODO: 支持idx为Index object的情况
         else:
             if isinstance(idx,slice):
-                part1 = self.data[0:idx.start]
-                part2 = feats
-                part3 = self.data[idx.stop:len(self)]
+                part1 = self.data.numpy()[0:idx.start]
+                part2 = feats.numpy()
+                part3 = self.data.numpy()[idx.stop:len(self)]
             else:
-                self.data[idx] = feats
+                self.data.numpy()[idx] = feats.numpy()
     def extend(self,feats : ndl.Tensor,feat_scheme=None):
         """在Column中添加数据
             [[0,1,11],[11,2,2]]-----(添加一行)---->[[0,1,11],[11,2,2],[2,2,3]]
@@ -317,5 +322,276 @@ class FrameRef(MutableMapping):
             return self._index_data.stop - self._index_data.start
         else:
             return len(self._index_data)
+        
+    def __contains__(self, name):
+        """Return whether the column name exists."""
+        return name in self._frame
+    def __iter__(self):
+        """Return the iterator of the columns."""
+        return iter(self._frame)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+    def __len__(self):
+        """Return the number of columns."""
+        return self.num_columns
+    def keys(self):
+        """Return the keys."""
+        return self._frame.keys()
+    def __getitem__(self, key):
+        """Get data from the frame
+
+        
+
+        """
+        if isinstance(key,str):
+            return self.select_columnn(key)
+        elif isinstance(key,slice) and key == slice(0,self.num_rows):
+            return self
+        elif isinstance(key,utils.Index) and key.is_slice(0,self.num_rows):
+            return self
+        else:
+            return self.select_rows(key)
+
+
+    def is_contiguous(self):
+        """Check whether this refer to a contiguous range of rows
+        """
+        # minidglGraph接受的节点slice默认slice.step是None
+        return isinstance(self._index_data,slice)
     
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+    def is_span_whole_column(self):
+        """Check Whether this refers to all the rows
+        """
+        return self.is_contiguous() and self.num_rows == self._frame.num_rows
+    def index(self):
+        """Return the index object
+
+        Returns
+        -----------
+        utils.Index
+            The index
+        """
+        if self._index is None:
+            if self.is_contiguous():
+                self._index = utils.toindex(
+                    np.arange(self._index_data.start,self._index_data.stop)
+                )
+            else:
+                self._index = utils.toindex(self._index_data)
+        return self._index
+    
+    def index_or_slice(self):
+        """Return index object or slice
+
+        Returns
+        ----------
+        utils.Index or slice
+            The index or slice data
+        """
+        if self.index_or_slice is None:
+            if self.is_contiguous():
+                self._index_or_slice = self._index_data
+            else:
+                self._index_or_slice = utils.toindex(self._index_data)
+        return self._index_or_slice
+            
+    def select_columnn(self,name):
+        """ Return the column of given name
+
+        Parameters
+        ------------
+        name : str
+            The column name
+        
+        Returns 
+        -----------
+        Tensor
+            The column data.
+        """
+        col = self._frame[name]
+        if self.is_span_whole_column():
+            return col.data
+        else:
+            return col[self.index_or_slice()]
+        
+    def transform_rows(self,query:utils.Index):
+        """将self.Index()加上key Index,在原有的Index基础上选择子集。
+
+        Parameters
+        ---------------
+        query : Index
+            the index object
+
+        Returns
+        ----------------
+        Index
+
+        """
+        if self.is_contiguous():
+            start = self._index_data.start
+            if start==0:
+                return query
+            elif isinstance(query,slice):
+                return slice(query.start+start,query.stop+start)
+            else:
+                temp = query.tonumpy()
+                return utils.toindex(temp+start)
+        else:
+            temp_index = query.tonumpy()
+            frame_index = self.index().tonumpy()
+            return utils.toindex(frame_index[temp_index])
+    def select_rows(self,key : utils.Index):
+        """Return the rows of the given index
+
+        Parameters
+        ------------
+        key : Index
+            The index obejct 
+        
+        Returns
+        ------------
+        FrameRef
+            The sub Frame on the key index 
+            
+        """
+        after_transform_rows = self.transform_rows(key)
+        return utils.LazyDict(lambda key : self._frame[key][after_transform_rows],keys=self.keys())
+    
+    
+    def update_column(self,name,data,inplace=True):
+        """update the column given name and data
+        
+        Parameters
+        ------------
+        name : str 
+            The column name 
+        data : Tensor
+            The given column data
+        """    
+        if self.is_span_whole_column():
+        #update the whole Frame whith a new Frame
+            new_column_data = Column.create(data=data)
+
+            if self._frame.num_rows==0:
+                #empty frame
+                self._index_data = slice(0,len(new_column_data))
+            self._frame[name] = new_column_data
+            
+        else:
+            #if name in frame
+            if name not in self._frame:
+                ctx = data.device
+                self._frame.add_column(name,infer_scheme(data),ctx)
+            #使用Column的update更新指定索引下的数据，
+            #Frame的update_column只能更新指定域名下的全部数据
+            #使用Frame的update_column也可以如下：
+            # new_column = self._frame[name].update(self._index_or_slice,data,inplace)
+            # self._frame.update_column(name,new_column)
+            self._frame[name].update(self._index_or_slice,data,inplace)
+    def add_rows(self,num_rows):
+        """Add rows to all Columns in the frame
+        equal to add new nodes to the graph
+        
+        Parameter
+        -------------
+        num_rows : int
+            number of blank rows given to add to the frame
+        """
+        if not self.is_span_whole_column():
+            raise ValueError("The added FrameRef must span all Frame")
+        self._frame.add_rows(num_rows)
+        if self._index.slice_data is not None:
+            slc = self._index.slice_data
+            self._index = utils.toindex(slice(slc.start,slc.stop+num_rows))
+        else:
+            #非slice类型的index
+            #需要在原index之后加上顺序的num_rows个索引
+            newidxdata = self._index.tonumpy()
+            newdata = np.arange(self.num_rows,self.num_rows+num_rows)
+            self._index = utils.toindex(np.concatenate((newidxdata,newdata),axis=0))
+
+    def update_rows(self,query:utils.Index , data , inplace=True):
+        """Update the given rows
+
+        注意query是在自己FrameRef上的查询，需要转换到底层的Frame
+
+        Parameters
+        -------------
+        query : Index
+
+        data : dict or Column
+
+        inplace : bool
+        """
+        newrows = self.transform_rows(query)
+        for k,v in data.items():
+            if k not in self._frame:
+                temp = FrameRef(self._frame,newrows)
+                temp.update_column(k,v,inplace)
+            else:
+                self._frame[k].update(newrows,v,inplace)
+    def __delitem__(self, key):
+        """Delete data in the frame.
+
+        If the provided key is a string, the corresponding column will be deleted.
+        If the provided key is an index object or a slice, the corresponding rows will
+        be deleted.
+
+        Please note that "deleted" rows are not really deleted, but simply removed
+        in the reference. As a result, if two FrameRefs point to the same Frame, deleting
+        from one ref will not reflect on the other. However, deleting columns is real.
+
+        Parameters
+        ----------
+        key : str or utils.Index
+            The key.
+        """
+        if not isinstance(key, (str, utils.Index)):
+            raise ValueError('Argument "key" must be either str or utils.Index type.')
+        if isinstance(key, str):
+            del self._frame[key]
+        else:
+            self.delete_rows(key)
+    def delete_rows(self, query):
+        """Delete rows.
+
+        Please note that "deleted" rows are not really deleted, but simply removed
+        in the reference. As a result, if two FrameRefs point to the same Frame, deleting
+        from one ref will not reflect on the other. By contrast, deleting columns is real.
+
+        Parameters
+        ----------
+        query : utils.Index
+            The rows to be deleted.
+        """
+        query = query.tonumpy()
+        index = self._index.tonumpy()
+        self._index = utils.toindex(np.delete(index, query))
+
+    def append(self, other):
+        """Append another frame into this one.
+
+        Parameters
+        ----------
+        other : dict of str to tensor
+            The data to be appended.
+        """
+        old_nrows = self._frame.num_rows
+        self._frame.append(other)
+        new_nrows = self._frame.num_rows
+        # update index
+        if (self._index.slice_data is not None
+                and self._index.slice_data.stop == old_nrows):
+            # Self index is a slice and index.stop is equal to the size of the
+            # underlying frame. Can still use a slice for the new index.
+            oldstart = self._index.slice_data.start
+            self._index = utils.toindex(slice(oldstart, new_nrows))
+        else:
+            # convert it to user tensor and concat
+            selfidxdata = self._index.tonumpy()
+            newdata = np.arange(old_nrows, new_nrows)
+            self._index = utils.toindex(F.cat([selfidxdata, newdata], dim=0))
+            self._index = utils.toindex(np.concatenate((selfidxdata,newdata),axis=0))
+    def clear(self):
+        """Clear the frame."""
+        self._frame.clear()
+        self._index = utils.toindex(slice(0, 0))
+    
