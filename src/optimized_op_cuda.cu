@@ -376,7 +376,32 @@ __global__ void flashAttention(float* Q, float* K, float* V, float* O)
 	O[x * d + y] = float(O_temp[threadIdx.x][threadIdx.y] / L);
 }
 
+void flashAttentionLauncher(float* Q, float* K, float* V, float* O) {
 
+	float* d_Q;
+	float* d_K;
+	float* d_V;
+	float* d_O;
+
+	cudaMalloc((void**)&d_Q, N * d * sizeof(float));
+	cudaMalloc((void**)&d_K, N * d * sizeof(float));
+	cudaMalloc((void**)&d_V, N * d * sizeof(float));
+	cudaMalloc((void**)&d_O, N * d * sizeof(float));
+
+	cudaMemcpy(d_Q, Q, N * d * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_K, K, N * d * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_V, V, N * d * sizeof(float), cudaMemcpyHostToDevice);
+	// cudaMemcpy(d_O, O, N * d * sizeof(float), cudaMemcpyHostToDevice);
+
+	dim3 grid_dim(num_block_x, num_block_y, 1);
+	dim3 block_dim(BLOCK_DIM, BLOCK_DIM, 1);
+	// int share_mem = 2 * BLOCK_DIM * BLOCK_DIM * sizeof(float);
+
+	flashAttention << <grid_dim, block_dim >> > (d_Q, d_K, d_V, d_O);
+	cudaMemcpy(O, d_O, N * d * sizeof(float), cudaMemcpyDeviceToHost);
+	//print output
+
+}
 
 
 

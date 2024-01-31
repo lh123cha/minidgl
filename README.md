@@ -8,10 +8,20 @@
 - 图数据加载(拓扑数据与特征数据)
 - 图采样算法(基于CPU、GPU)
 - 简单的图神经网络架构算法
-# 一、通用GEMM
-具体实现参考
-https://voltaic-turret-94c.notion.site/Minidgl-a60dabb385a344d69d018e7708fd5b45?pvs=4
+# 一、实现文档
+具体实现文档在：
+https://voltaic-turret-94c.notion.site/Minidgl-a60dabb385a344d69d018e7708fd5b45?pvs=4]
 
+# How to run
+
+## 一、安装pybind
+```bash
+pip install pybind11
+```
+在build文件中make
+```bash
+make
+```
 # 一、图数据加载
 
 
