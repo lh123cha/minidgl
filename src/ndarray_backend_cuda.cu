@@ -2,6 +2,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include "GEMM.cuh"
 
 #include <iostream>
 #include <sstream>
@@ -32,7 +33,7 @@ struct CudaArray {
 struct CudaDims {
   dim3 block, grid;
 };
-
+//这里需要从1维改为2维。
 CudaDims CudaOneDim(size_t size) {
   /**
    * Utility function to get cuda dimensions for 1D call
@@ -463,6 +464,11 @@ __global__ void MatmulKernel(scalar_t *a, scalar_t *b, scalar_t *out, size_t siz
   }
 }
 
+void MatMul_tiled_vec4_db(const CudaArray& a, const CudaArray& b, CudaArray* out,int M,int K,int N) {
+  //这里block要换为16*16的block，一个block256个线程，
+  // CudaDims dim = CudaOneDim(out->size);
+  tiled_matrixMul_vec4_db<128,,8,128,8,8><<<dim3(M/128, K/8, 1);,dim3(16, 16, 1);>>>(a->ptr,b->ptr,out->ptr,M,K,N);
+}
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
             uint32_t P) {
   /**

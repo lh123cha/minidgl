@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/home/lianghui/anaconda3/envs/dgl-dev-gpu-117/lib/python3.8/site-packages/pybind11/include",
-                "/home/lianghui/anaconda3/envs/dgl-dev-gpu-117/lib/python3.8/site-packages/pybind11/include"
+                "/home/lianghui/anaconda3/envs/dgl-dev-gpu-117/lib/python3.8/site-packages/pybind11/include",
+                "/home/lianghui/Projects/p2/cutlass/tools/util/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
